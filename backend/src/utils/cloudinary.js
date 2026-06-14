@@ -8,7 +8,7 @@ import fs from "fs"//filesystem
         api_key: process.env.CLOUDINARY_API_KEY, 
         api_secret:process.env.CLOUDINARY_API_SECRET
     });
-    
+        
 })();
 
 const uploadoncloudinary= async(localfilepath)=>{
