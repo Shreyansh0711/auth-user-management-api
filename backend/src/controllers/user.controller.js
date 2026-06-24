@@ -4,6 +4,7 @@ import { user as User } from "../models/user.model.js";
 import { uploadoncloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/apiresponse.js";
 import jwt from "jsonwebtoken"
+import mongoose from "mongoose"
 const generateAccessAndRefreshtoken=async(userid)=>{
     try {
         const user=await User.findById(userid)
@@ -196,8 +197,224 @@ const refreshaccesstoken=asyncHandler(async(req,res)=>{
     }
 
 })
+
+const changecurrrentpassword=asyncHandler(async(req,res)=>{
+    const {oldpassword,newpassword}=req.body
+
+    const user=await User.findById(req.user?._id)
+    const ispasswordcorrect=await user.isvalidpassword(oldpassword)
+
+    if(!ispasswordcorrect){
+        throw new ApiError(400,"invalid old password")
+    }
+    user.password=newpassword
+    await user.save({validateBeforeSave:false})
+
+    return res
+    .status(200)
+    .json(new ApiResponse(200,{},"password changed successfully"))
+})
+
+const getcurrentuser = asyncHandler(async (req, res) => {
+    return res
+    .status(200)
+    .json(new ApiResponse(
+        200,
+        req.user,
+        "Current user fetched successfully"
+    ));
+});
+
+const updateaccountdetails=asyncHandler(async(req,res)=>{
+    const{fullname,email}=req.body
+    if(!fullname||!email){
+        throw new ApiError(400,"all fields are required")
+    }
+   const user= await User.findByIdAndUpdate(req.user?._id,
+    {
+        $set:{
+            fullname,
+            email
+        }
+    },
+    {new:true}
+   ).select("-password")
+
+   return res.status(200)
+   .json(new ApiResponse(200,user,"account details updated successfully"))
+})
+
+const updateuseravatar=asyncHandler(async(req,res)=>{
+    const avatarlocalpath=req.file?.path
+
+    if(!avatarlocalpath){
+        throw new ApiError(400,"avatar files is missing")
+    }
+
+    const avatar=await uploadoncloudinary(avatarlocalpath)
+
+    if(!avatar.url){
+        throw new ApiError(400,"error while uploading avatar")
+    }
+
+    const user=await User.findByIdAndUpdate(
+        req.user?._id,
+        {$set:{
+            avatar:avatar.url
+        }},
+        {new : true}
+    ).select("-password")
+    return res.status(200)
+    .json(
+        new ApiResponse(200,user,"avatar is updated")
+    )
+})
+const updateusercoverimage=asyncHandler(async(req,res)=>{
+    const coverimagelocalpath=req.file?.path
+
+    if(!coverimagelocalpath){
+        throw new ApiError(400,"coverimage files is missing")
+    }
+
+    const coverimage=await uploadoncloudinary(coverimagelocalpath)
+
+    if(!coverimage.url){
+        throw new ApiError(400,"error while uploading coverimage")
+    }
+
+    const user=await User.findByIdAndUpdate(
+        req.user?._id,
+        {$set:{
+            coverimage:coverimage.url
+        }},
+        {new : true}
+    ).select("-password")
+    return res.status(200)
+    .json(
+        new ApiResponse(200,user,"coverimage is updated")
+    )
+})
+
+const getuserchannelprofile=asyncHandler(async(req,res)=>{
+    const{username}=req.params
+    if(!username?.trim()){
+        throw new ApiError(400,"username is missing")
+    }
+
+    const channel=await User.aggregate([
+        {$match:{
+            username:username?.toLowerCase()
+        }},{
+            $lookup:{
+                from:"subscription",
+                localField:"_id",
+                foreignField:"channel",
+                as:"subscriber"
+            }
+        },{
+            $lookup:{
+                from:"subscription",
+                localField:"_id",
+                foreignField:"subscriber",
+                as:"subscribedto"
+            }
+        },{
+            $addFields:{
+                subscribercount:{
+                    $size:"$subscriber"
+                },
+                channelsubscribertocount:{
+                    $size:"$subscribedto"
+                },
+                issubscribed:{
+                    $cond:{
+                        if:{
+                            $in:[req.user?._id,"$subscriber.subscriber"]
+                        },
+                        then:true,
+                        else:false
+                    }
+                }
+            }
+        },{
+            $project:{
+                fullname:1,
+                username:1,
+                subscribercount:1,
+                channelsubscribertocount:1,
+                issubscribed:1,
+                avatar:1,
+                coverimage:1,
+                email:1
+            }
+        }
+    ])
+    if(!channel?.length){
+        throw new ApiError(404,"channel does not exists")
+    }
+
+    return res.status(200)
+    .json(
+        new ApiResponse(200,channel[0],"user channel fetched successfully")
+    )
+})
+
+const getwatchhistory=asyncHandler(async(req,res)=>{
+    const users=await User.aggregate([{
+        $match:{
+            _id: new mongoose.Types.ObjectId(req.user._id)
+        }
+    },{
+            $lookup:{
+                from:"videos",
+                localField:"watchhistory",
+                foreignField:"_id",
+                as:"watchHistory",
+                pipeline:[
+                    {
+                        $lookup:{
+                        from:"users",
+                        localField:"owner",
+                        foreignField:"_id",
+                        as:"owner",
+                        pipeline:[{
+                            $project:{
+                                fullname:1,
+                                username:1,
+                                avatar:1
+                            }
+                        }]
+                        }
+                    },{
+                        $addFields:{
+                            owner:{
+                                $first:"$owner"
+                            }
+                        }
+                    }
+                ]
+            }
+        }
+    ])
+
+    return res.status(200)
+    .json(
+         new ApiResponse(
+            200,
+            users[0].watchHistroy,
+            "watch history fetched successfully"
+         )
+    )
+})
 export { registeruser ,
     loginuser,
     logoutuser,
-    refreshaccesstoken
+    refreshaccesstoken,
+    changecurrrentpassword,
+    getcurrentuser,
+    updateaccountdetails,
+    updateuseravatar,
+    updateusercoverimage,
+    getuserchannelprofile,
+    getwatchhistory
 };
