@@ -10,19 +10,27 @@ import fs from "fs"//filesystem
     });
         
 })();
+let response;
 
 const uploadoncloudinary= async(localfilepath)=>{
     try {
         if(!localfilepath)return null;
         const response=await cloudinary.uploader.upload(localfilepath,{resource_type:"auto"})
-        console.log("file uploaded successfully",
-            response.url
-        )
+        // console.log("file uploaded successfully",
+        //     response.url
+        // )
+        fs.unlinkSync(localfilepath)
         return response;
 
     } catch (error) {
-        fs.unlinkSync(localfilepath)//remove locally saved temp file as the upload operation get failed
+    console.log("Cloudinary Error:", error);
+
+    if(localfilepath){
+        fs.unlinkSync(localfilepath);
     }
+
+    return null;
+}
 }
 
 

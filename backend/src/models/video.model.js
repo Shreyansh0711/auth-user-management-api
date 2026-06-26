@@ -20,7 +20,7 @@ const videoSchema=new Schema(
             required:true
         }
         ,duration:{
-            type:String,//from cloudinary
+            type:Number,//from cloudinary
             required:true
         }
         ,views:{
@@ -32,7 +32,7 @@ const videoSchema=new Schema(
             default:true
         }
         ,owner:{
-            type:Schema.Type.ObjectId,
+            type:Schema.Types.ObjectId,
             ref:"user"
         }
     },{
