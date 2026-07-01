@@ -40,6 +40,18 @@ const addvideotoplaylist=asyncHandler(async(req,res)=>{
     return res.status(200)
     .json( new ApiResponse(200,playlist,"video added to playlist"))
 })
+const userplaylist=asyncHandler(async(req,res)=>{
+    const{userid}=req.params
 
+    if(!userid){
+        throw new ApiError(400,"user id is required")
+    }
 
-export{createplaylist,addvideotoplaylist}
+    const playlists=await Playlist.find({
+        owner:userid
+    })
+    return res
+    .status(200)
+    .json( new ApiResponse(200,playlists,"user playlists fetched successfully"))
+})
+export{createplaylist,addvideotoplaylist,userplaylist}

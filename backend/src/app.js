@@ -24,4 +24,8 @@ import commentRouter from "./routes/comment.routes.js";
 app.use("/api/v1", commentRouter);
 import playlistrouter from "./routes/playlist.routes.js"
 app.use("/api/v1",playlistrouter)
+import likeRouter from "./routes/like.routes.js";
+app.use("/api/v1", likeRouter);
+import tweetRouter from "./routes/tweet.routes.js";
+app.use("/api/v1", tweetRouter);
 export{app}

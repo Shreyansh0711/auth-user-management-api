@@ -8,7 +8,7 @@ const likeschema=new Schema(
     },
         comment:{
             type:Schema.Types.ObjectId,
-            ref:"cpmment"
+            ref:"comment"
         },
         tweet:{
             type:Schema.Types.ObjectId,
