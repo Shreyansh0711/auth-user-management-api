@@ -28,5 +28,58 @@ const getalltweets= asyncHandler(async(req,res)=>{
         new ApiResponse(200,tweets)
     )
 })
+const updatetweets=asyncHandler(async(req,res)=>{
+    const{tweetid}=req.params
+    const{content}=req.body
 
-export{getalltweets,createtweet}
+    if(!mongoose.Types.ObjectId.isValid(tweetid)){
+        throw new ApiError(400,"inavlid tweetid");
+    }
+
+    if(!content?.trim()){
+        throw new ApiError(400,"content is required")
+    }
+
+    const foundtweet=await Tweet.findById(tweetid)
+    if(!foundtweet){
+        throw new ApiError(404,"tweet not found")
+    }
+    if(foundtweet.owner.toString()!==req.user._id.toString()){
+        throw new ApiError(403,"you are not authorized")
+    }
+
+    foundtweet.content=content;
+
+    await foundtweet.save();
+
+    return res.status(200)
+    .json(
+        new ApiResponse(
+            200,
+            foundtweet,
+            "tweet updated successfully"
+        )
+    )
+})
+
+const deletetweets=asyncHandler(async(req,res)=>{
+    const{tweetid}=req.params
+    if(!mongoose.Types.ObjectId.isValid(tweetid)){
+        throw new ApiError(400,"inavlid tweetid");
+    }
+
+    const foundtweet=await Tweet.findById(tweetid)
+    if(!foundtweet){
+        throw new ApiError(404,"tweet not found")
+    }
+    if(foundtweet.owner.toString()!==req.user._id.toString()){
+        throw new ApiError(403,"you are not authorized")
+    }
+    await foundtweet.deleteOne()
+
+    return res.status(200)
+    .json(
+        new ApiResponse(200,{},"tweet deleted successfully")
+    )
+})
+export{getalltweets,createtweet,updatetweets,deletetweets}
