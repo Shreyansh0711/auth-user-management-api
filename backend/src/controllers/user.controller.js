@@ -4,9 +4,9 @@ import { user as User } from "../models/user.model.js";
 import { uploadoncloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/apiresponse.js";
 import { sendEmail } from "../utils/sendEmail.js";
-
 import jwt from "jsonwebtoken"
 import mongoose from "mongoose"
+import crypto from "crypto";
 const generateAccessAndRefreshtoken=async(userid)=>{
     try {
         const user=await User.findById(userid)
@@ -87,6 +87,7 @@ const registeruser = asyncHandler(async (req, res) => {
     )
     const verificationUrl =
   `http://localhost:7000/api/v1/users/verify-email?token=${verificationToken}`;
+    // console.log("Sending verification email to:", createdUser.email);
     await sendEmail({
     email: createdUser.email,
     subject: "Verify your Email",
@@ -224,6 +225,83 @@ const logoutuser=asyncHandler(async(req,res)=>{
     .clearCookie("accesstoken",options)
     .clearCookie("refreshtoken",options)
     .json(new ApiResponse(200,{},"user logged out"))
+})
+const forgetPassword=asyncHandler(async(req,res)=>{
+    const{email}=req.body;
+    if(!email?.trim()){
+        throw new ApiError(400,"email is required")
+    }
+
+    const user=await User.findOne({email})
+    if(!user){
+        return res.status(200).json(
+            new ApiResponse(200,{},"if an account with this email exists,a password link has been sent.")
+        )
+    }
+    //generate secure random token
+    const resettoken=crypto.randomBytes(32).toString("hex")
+    const hasedtoken=crypto
+    .createHash("sha256")
+    .update(resettoken)
+    .digest("hex")
+
+    user.passwordResetToken=hasedtoken
+    user.passwordResetExpires=Date.now() + 15 * 60 * 1000;
+
+    await user.save({validateBeforeSave:false})
+    const resetUrl =`http://localhost:7000/api/v1/users/reset-password?token=${resettoken}`;
+    //html for email
+    const html=`
+        <h2>Password Reset</h2>
+        <p>You requested to reset your password.</p>
+        <p>Click the link below:</p>
+        <a href="${resetUrl}">${resetUrl}</a>
+        <p>This link expires in 15 minutes.</p>
+    `
+    //send email
+    await sendEmail({
+        email:user.email,
+        subject:"Password Reset",
+        html
+    })
+
+    return res.
+    status(200).json(
+       new ApiResponse( 200,{},"if an account with this email exists,a password reset link has been sent.")
+    )
+})
+const resetpassword=asyncHandler(async(req,res)=>{
+    
+    const {token,password}=req.body
+    //validate input
+    if(!token||!password?.trim()){
+        throw new ApiError(400,"token and password are required")
+    }
+    // hash incoming token 
+    const hashedtoken=crypto
+    .createHash("sha256")
+    .update(token)
+    .digest("hex")
+    //if valid or expired
+    const user=await User.findOne({
+        passwordResetToken:hashedtoken,
+        passwordResetExpires:{$gt:Date.now()},
+    })
+    //if invalid or expired
+    if(!user){
+        throw new ApiError(400,"invalid or expired reset token")
+    }
+    //set new password
+    user.password=password
+    //clear reset field
+    user.passwordResetToken=undefined
+    user.passwordResetExpires=undefined
+    //save user
+    await user.save();
+    //response
+    return res.status(200).json(
+        new ApiResponse(200,{},"Password reset successful")
+    )
 })
 const refreshaccesstoken=asyncHandler(async(req,res)=>{
     const incomingrefreshtoken=req.cookies.refreshtoken||req.body.refreshtoken
@@ -487,6 +565,8 @@ const getwatchhistory=asyncHandler(async(req,res)=>{
 export { registeruser ,
     loginuser,
     logoutuser,
+    resetpassword,
+    forgetPassword,
     verifyEmail,
     refreshaccesstoken,
     changecurrrentpassword,
