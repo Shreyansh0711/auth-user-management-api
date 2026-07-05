@@ -3,6 +3,8 @@ import { ApiError } from "../utils/apierror.js";
 import { user as User } from "../models/user.model.js";
 import { uploadoncloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/apiresponse.js";
+import { sendEmail } from "../utils/sendEmail.js";
+
 import jwt from "jsonwebtoken"
 import mongoose from "mongoose"
 const generateAccessAndRefreshtoken=async(userid)=>{
@@ -73,6 +75,30 @@ const registeruser = asyncHandler(async (req, res) => {
         username: username.toLowerCase()
     });
 
+    const verificationToken=jwt.sign(
+        {
+            userid:createdUser._id,
+            email:createdUser.email,
+        },
+        process.env.EMAIL_VERIFICATION_SECRET,
+        {
+            expiresIn:process.env.EMAIL_VERIFICATION_EXPIRY,
+        }
+    )
+    const verificationUrl =
+  `http://localhost:7000/api/v1/users/verify-email?token=${verificationToken}`;
+    await sendEmail({
+    email: createdUser.email,
+    subject: "Verify your Email",
+    html: `
+        <h2>Welcome ${createdUser.fullname}</h2>
+        <p>Click the link below to verify your email.</p>
+
+        <a href="${verificationUrl}">
+            Verify Email
+        </a>
+    `
+    });
     // fetch safe user
     const finalUser = await User.findById(createdUser._id).select(
         "-password -refreshtoken"
@@ -83,17 +109,69 @@ const registeruser = asyncHandler(async (req, res) => {
     }
 
     return res.status(201).json(
-        new ApiResponse(200, finalUser, "User created successfully")
+    new ApiResponse(
+            201,
+            finalUser,
+            "User created successfully. Please verify your email."
+        )
     );
 });
+const verifyEmail =asyncHandler(async(req,res)=>{
+    const{token}=req.query
+
+    if(!token){
+        throw new ApiError(400,"verification token is required")
+    }
+
+    let decodedtoken;
+
+    try{
+        decodedtoken=jwt.verify(
+            token,
+            process.env.EMAIL_VERIFICATION_SECRET
+        )
+    }catch(error){
+        throw new ApiError(401,"invalid or expired token")
+    }
+
+    const user=await User.findById(decodedtoken.userid)
+
+    if(!user){
+        throw new ApiError(404,"user not found")
+    }
+
+    if(user.isEmailVerified){
+        return res.status(200)
+        .json(
+            new ApiResponse(200,{},"Email is already verified")
+        )
+    }
+
+    user.isEmailVerified=true
+
+    await user.save({
+        validateBeforeSave:false
+    })
+
+    return res.status(200)
+    .json(
+        new ApiResponse(200,{},"email verified successfully")
+    )
+})
 const loginuser=asyncHandler(async(req,res)=>{
     const{email,username,password} =req.body
+    
     if(!username&&!email){
         throw new ApiError(400,"username or email is required")
     }
+    
     const user = await User.findOne({
-    $or: [{ username }, { email }]
-}); 
+        $or: [{ username }, { email }]
+    }); 
+
+    if (!user.isEmailVerified) {
+        throw new ApiError(403, "Please verify your email first");
+    }
     if(!user){
         throw new ApiError(404,"user not exists")
     }
@@ -409,6 +487,7 @@ const getwatchhistory=asyncHandler(async(req,res)=>{
 export { registeruser ,
     loginuser,
     logoutuser,
+    verifyEmail,
     refreshaccesstoken,
     changecurrrentpassword,
     getcurrentuser,

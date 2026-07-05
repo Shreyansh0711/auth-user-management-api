@@ -43,7 +43,17 @@ const userSchema=new Schema(
     },
     refreshtoken:{
         type:String
-    }
+    },
+    isEmailVerified: {
+        type: Boolean,
+        default: false,
+    },
+    emailVerificationToken: {
+        type: String,
+    },
+    emailVerificationExpiry: {
+        type: Date,
+    },
 }   ,{timestamps:true}
 )
 userSchema.pre("save", async function () {
