@@ -1,96 +1,98 @@
-import mongoose,{Schema} from "mongoose"
+import mongoose, { Schema } from "mongoose"
 import jwt from "jsonwebtoken"
 import bcrypt from "bcryptjs";
-const userSchema=new Schema(
+const userSchema = new Schema(
     {
-    username:{
-        type:String,
-        required:true,
-        unique:true,
-        lowercase:true,
-        trim:true,
-        index:true
-    },
-    email:{
-        type:String,
-        required:true,
-        unique:true,
-        lowercase:true,
-        trim:true,
-    },
-    fullname:{
-        type:String,
-        required:true,
-        unique:true,
-        lowercase:true,
-        trim:true,
-        index:true
-    },
-    avatar:{
-        type:String,//cloudinary url will be used
-        required:true,
-    },
-    coverimage:{
-        type:String
-    },
-    watchhistory:{
-        type:Schema.Types.ObjectId,
-        ref:"video"
-    },
-    password:{
-        type:String,
-        required:[true,'password is required']
-    },
-    refreshtoken:{
-        type:String
-    },
-    isEmailVerified: {
-        type: Boolean,
-        default: false,
-    },
-    emailVerificationToken: {
-        type: String,
-    },
-    emailVerificationExpiry: {
-        type: Date,
-    },passwordResetToken: {
-        type: String,
-    },
-    passwordResetExpires: {
-        type: Date,
-    },
-}   ,{timestamps:true}
+        username: {
+            type: String,
+            required: true,
+            unique: true,
+            lowercase: true,
+            trim: true,
+            index: true
+        },
+        email: {
+            type: String,
+            required: true,
+            unique: true,
+            lowercase: true,
+            trim: true,
+        },
+        fullname: {
+            type: String,
+            required: true,
+            trim: true,
+        },
+        avatar: {
+            type: String,//cloudinary url will be used
+            required: true,
+        },
+        coverimage: {
+            type: String
+        },
+        watchhistory: {
+            type: Schema.Types.ObjectId,
+            ref: "video"
+        },
+        password: {
+            type: String,
+            // required: [true, 'password is required']
+        },
+        refreshtoken: {
+            type: String
+        },
+        isEmailVerified: {
+            type: Boolean,
+            default: false,
+        },
+        emailVerificationToken: {
+            type: String,
+        },
+        emailVerificationExpiry: {
+            type: Date,
+        }, passwordResetToken: {
+            type: String,
+        },
+        passwordResetExpires: {
+            type: Date,
+        },
+        googleId:{
+            type:String,
+            unique:true,
+            sparse:true,//allow multiple document with no googleid
+        },
+    }, { timestamps: true }
 )
 userSchema.pre("save", async function () {
     if (!this.isModified("password")) return;
 
     this.password = await bcrypt.hash(this.password, 10);
 });
-userSchema.methods.isvalidpassword=async function(password){
-    return await bcrypt.compare(password,this.password)
+userSchema.methods.isvalidpassword = async function (password) {
+    return await bcrypt.compare(password, this.password)
 }
-userSchema.methods.generateAccessToken=function(){
+userSchema.methods.generateAccessToken = function () {
     return jwt.sign(
         {
-            _id:this._id,
-            email : this.email,
-            username : this.username,
-            fullname:this.fullname
-        },process.env.ACCESS_TOKEN_SECRET,{
-            expiresIn:process.env.ACCESS_TOKEN_EXPIRY
-        }
+            _id: this._id,
+            email: this.email,
+            username: this.username,
+            fullname: this.fullname
+        }, process.env.ACCESS_TOKEN_SECRET, {
+        expiresIn: process.env.ACCESS_TOKEN_EXPIRY
+    }
     )
 }
-userSchema.methods.generateRefreshToken=function(){
+userSchema.methods.generateRefreshToken = function () {
     return jwt.sign(
         {
-            _id:this._id,
-            email : this.email,
-            username : this.username,
-            fullname:this.fullname
-        },process.env.REFRESH_TOKEN_SECRET,{
-            expiresIn:process.env.REFRESH_TOKEN_EXPIRY
-        }
+            _id: this._id,
+            email: this.email,
+            username: this.username,
+            fullname: this.fullname
+        }, process.env.REFRESH_TOKEN_SECRET, {
+        expiresIn: process.env.REFRESH_TOKEN_EXPIRY
+    }
     )
 }
-export const user=mongoose.model("user",userSchema)
+export const user = mongoose.model("user", userSchema)

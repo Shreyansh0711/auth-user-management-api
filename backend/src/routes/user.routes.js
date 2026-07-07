@@ -1,7 +1,9 @@
 import { Router } from "express";
-import { registeruser,verifyEmail,loginuser,forgetPassword,resetpassword,logoutuser,refreshaccesstoken,changecurrrentpassword,getcurrentuser,updateaccountdetails,updateuseravatar,updateusercoverimage,getuserchannelprofile,getwatchhistory} from "../controllers/user.controller.js";
+import { registeruser,generateAccessAndRefreshtoken,verifyEmail,loginuser,forgetPassword,resetpassword,logoutuser,refreshaccesstoken,changecurrrentpassword,getcurrentuser,updateaccountdetails,updateuseravatar,updateusercoverimage,getuserchannelprofile,getwatchhistory} from "../controllers/user.controller.js";
 import{upload} from "../middlewares/multer.middleware.js"
 import { verifyJWT } from "../middlewares/auth.middleware.js";
+import passport from "../passport.js"
+import {ApiError} from "../utils/apierror.js"
 const router = Router();
 
 router.route("/register").post(
@@ -17,6 +19,44 @@ router.route("/register").post(
     ]),
     registeruser
 );
+router.get(
+    "/google",
+    passport.authenticate("google",{
+        scope:["profile","email"]
+    })
+)
+router.route("/google/callback")
+    .get(passport.authenticate("google",{
+    session:false,
+    }),
+    async(req,res)=>{
+        {try {
+            const user=req.user
+    
+            const{accesstoken,refreshtoken}=await generateAccessAndRefreshtoken(user._id)
+            const options={
+                httpOnly:true,
+                secure:true,
+            }
+    
+            return res
+            .status(200)
+            .cookie("accesstoken",accesstoken,options)
+            .cookie("refreshtoken",refreshtoken,options)
+            .json({
+                message:"Google login successful",
+                user,
+            })
+        } catch (error) {
+            console.error(error);
+            throw error;
+            // throw new ApiError(
+            //     500,
+            //     "google authentication failed"
+            // )
+        }}
+    }
+)
 router.route("/login").post(loginuser)
 router.route("/logout").post(verifyJWT, logoutuser)
 router.route("/refresh-token").post(refreshaccesstoken)
