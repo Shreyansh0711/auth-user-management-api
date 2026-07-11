@@ -1,0 +1,77 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply text-textMain antialiased font-sans min-h-screen overflow-x-hidden bg-black;
+  }
+  
+  /* Rotating Milky Way Background */
+  body::before {
+    content: '';
+    position: fixed;
+    top: -50vw;
+    left: -50vh;
+    width: 200vw;
+    height: 200vh;
+    z-index: -1;
+    background-color: #030014;
+    background-image: 
+      radial-gradient(circle at center, rgba(139, 92, 246, 0.25) 0%, transparent 45%),
+      radial-gradient(ellipse at 40% 60%, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
+      radial-gradient(ellipse at 60% 40%, rgba(236, 72, 153, 0.1) 0%, transparent 50%),
+      /* Stars layer */
+      radial-gradient(1px 1px at 10% 20%, white, transparent),
+      radial-gradient(1.5px 1.5px at 25% 40%, white, transparent),
+      radial-gradient(1px 1px at 45% 15%, white, transparent),
+      radial-gradient(2px 2px at 60% 30%, white, transparent),
+      radial-gradient(1px 1px at 80% 50%, white, transparent),
+      radial-gradient(1.5px 1.5px at 15% 70%, white, transparent),
+      radial-gradient(1px 1px at 35% 85%, white, transparent),
+      radial-gradient(2px 2px at 70% 80%, white, transparent),
+      radial-gradient(1px 1px at 90% 10%, white, transparent);
+    background-size: 100% 100%, 100% 100%, 100% 100%, 150px 150px, 200px 200px, 120px 120px, 250px 250px, 180px 180px, 220px 220px, 140px 140px, 190px 190px, 160px 160px;
+    animation: rotateGalaxy 180s linear infinite;
+  }
+}
+
+@keyframes rotateGalaxy {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@layer components {
+  .glass {
+    @apply bg-[#0f172a]/40 backdrop-blur-[24px] border border-white/10 shadow-glass;
+  }
+  
+  .glass-card {
+    @apply glass rounded-2xl p-6 transition-all duration-300 hover:bg-[#0f172a]/60;
+  }
+
+  .glass-input {
+    @apply bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-300 w-full;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
