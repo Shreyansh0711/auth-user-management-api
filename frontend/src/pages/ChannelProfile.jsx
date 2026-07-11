@@ -2,9 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { authAPI } from '../api/auth';
 import { subscriptionAPI } from '../api/subscription';
+import { videoAPI } from '../api/video';
 import { useAuthStore } from '../store/authStore';
 import toast from 'react-hot-toast';
-import { Camera, Users } from 'lucide-react';
+import { Camera, Trash2, Users } from 'lucide-react';
 import { formatViews } from '../utils/format';
 import { ImageCropModal } from '../components/ImageCropModal';
 
@@ -14,6 +15,7 @@ export const ChannelProfile = () => {
   const [profile, setProfile] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
+  const [deletingVideoId, setDeletingVideoId] = useState(null);
   const [cropModalState, setCropModalState] = useState({
     isOpen: false,
     image: null,
@@ -109,6 +111,26 @@ export const ChannelProfile = () => {
       toast.error(error.response?.data?.message || 'Image upload failed');
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  const handleDeleteVideo = async (videoId) => {
+    if (!window.confirm('Delete this video? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      setDeletingVideoId(videoId);
+      await videoAPI.deleteVideo(videoId);
+      setProfile((current) => ({
+        ...current,
+        videos: (current?.videos || []).filter((video) => video._id !== videoId),
+      }));
+      toast.success('Video deleted successfully');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to delete video');
+    } finally {
+      setDeletingVideoId(null);
     }
   };
 
@@ -241,7 +263,28 @@ export const ChannelProfile = () => {
                       </div>
                     )}
                     <div className="p-4">
-                      <h3 className="font-bold line-clamp-2">{video.title}</h3>
+                      <div className="flex items-start justify-between gap-3">
+                        <h3 className="font-bold line-clamp-2">{video.title}</h3>
+                        {isOwnChannel && (
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              handleDeleteVideo(video._id);
+                            }}
+                            disabled={deletingVideoId === video._id}
+                            className="text-red-400 hover:text-red-300 disabled:opacity-50"
+                            aria-label="Delete video"
+                          >
+                            {deletingVideoId === video._id ? (
+                              <span className="block h-4 w-4 animate-spin rounded-full border-2 border-red-400 border-t-transparent" />
+                            ) : (
+                              <Trash2 size={18} />
+                            )}
+                          </button>
+                        )}
+                      </div>
                       <p className="text-textMuted text-sm mt-2">
                         {formatViews(video.views)} views
                       </p>
