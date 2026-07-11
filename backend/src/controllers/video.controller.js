@@ -73,15 +73,16 @@ const getvideobyid = asyncHandler(async (req, res) => {
         throw new ApiError(404, "video not found")
     }
 
-    foundvideo.views += 1;
-    await foundvideo.save()
+    const hasAlreadyViewed = req.user?.watchhistory?.some((historyId) => historyId.toString() === foundvideo._id.toString())
+
+    if (!hasAlreadyViewed) {
+        foundvideo.views += 1;
+        await foundvideo.save()
+    }
 
     if (req.user?._id) {
         await User.findByIdAndUpdate(req.user._id, {
-            $pull: { watchhistory: foundvideo._id }
-        })
-        await User.findByIdAndUpdate(req.user._id, {
-            $push: { watchhistory: foundvideo._id }
+            $addToSet: { watchhistory: foundvideo._id }
         })
     }
 
@@ -91,4 +92,27 @@ const getvideobyid = asyncHandler(async (req, res) => {
         )
 })
 
-export { publishvideo, getallvideos, getvideobyid }
+const deletevideo = asyncHandler(async (req, res) => {
+    const { videoid } = req.params
+
+    if (!mongoose.Types.ObjectId.isValid(videoid)) {
+        throw new ApiError(400, "invalid videoid")
+    }
+
+    const foundvideo = await video.findById(videoid)
+    if (!foundvideo) {
+        throw new ApiError(404, "video not found")
+    }
+
+    if (foundvideo.owner?.toString() !== req.user._id.toString()) {
+        throw new ApiError(403, "you can delete only your own video")
+    }
+
+    await foundvideo.deleteOne()
+
+    return res.status(200).json(
+        new ApiResponse(200, {}, "video deleted successfully")
+    )
+})
+
+export { publishvideo, getallvideos, getvideobyid, deletevideo }

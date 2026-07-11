@@ -22,6 +22,7 @@ const createtweet= asyncHandler(async(req,res)=>{
 })
 const getalltweets= asyncHandler(async(req,res)=>{
     const tweets= await Tweet.find()
+    .sort({ createdAt: -1 })
     .populate("owner","username fullname avatar")
 
     return res.status(200).json(
