@@ -24,3 +24,18 @@ export const verifyJWT= asyncHandler(async(req,res,next)=>{
     throw new ApiError(401,error?.message||"invalid access_token")
    }
 })
+
+export const optionalVerifyJWT = asyncHandler(async (req, res, next) => {
+    const token = req.cookies?.accesstoken || req.header("Authorization")?.replace("Bearer ", "")
+
+    if (!token) return next()
+
+    try {
+        const decodedtoken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET)
+        req.user = await User.findById(decodedtoken?._id).select("-password -refreshtoken")
+    } catch {
+        // A public video must remain viewable when an old client token is present.
+    }
+
+    next()
+})

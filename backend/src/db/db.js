@@ -9,7 +9,8 @@ dns.setServers([
 const connectDB = async () => {
     try {
         const connectionInstance = await mongoose.connect(
-            `${process.env.MONGODB_URI}/${DB_NAME}`
+            process.env.MONGODB_URI,
+            { dbName: DB_NAME, serverSelectionTimeoutMS: 10000 }
         );
 
         console.log(

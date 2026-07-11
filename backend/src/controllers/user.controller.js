@@ -26,7 +26,12 @@ const generateAccessAndRefreshtoken = async (userid) => {
         throw new ApiError(500, "something went wrong while accessing and refreshing token")
     }
 }
+
+const requiresEmailVerification = () => process.env.REQUIRE_EMAIL_VERIFICATION === "true";
+
 const registeruser = asyncHandler(async (req, res) => {
+
+    const emailVerificationRequired = requiresEmailVerification();
 
     const { fullname, email, username, password } = req.body;
 
@@ -72,10 +77,14 @@ const registeruser = asyncHandler(async (req, res) => {
         coverimage: coverimage?.url || "",
         email,
         password,
-        username: username.toLowerCase()
+        username: username.toLowerCase(),
+        // Local development should not depend on an external SMTP service.
+        // Enable this explicitly in production with REQUIRE_EMAIL_VERIFICATION=true.
+        isEmailVerified: !emailVerificationRequired
     });
 
-    const verificationToken = jwt.sign(
+    if (emailVerificationRequired) {
+        const verificationToken = jwt.sign(
         {
             //payload
             userid: createdUser._id,
@@ -87,13 +96,14 @@ const registeruser = asyncHandler(async (req, res) => {
             expiresIn: process.env.EMAIL_VERIFICATION_EXPIRY,
         }
     )
-    const verificationUrl =
-        `http://localhost:7000/api/v1/users/verify-email?token=${verificationToken}`;
-    // console.log("Sending verification email to:", createdUser.email);
-    await sendEmail({
-        email: createdUser.email,
-        subject: "Verify your Email",
-        html: `
+        const apiBaseUrl = process.env.API_BASE_URL || `http://localhost:${process.env.PORT || 8000}`;
+        const verificationUrl =
+            `${apiBaseUrl}/api/v1/users/verify-email?token=${verificationToken}`;
+        try {
+            await sendEmail({
+                email: createdUser.email,
+                subject: "Verify your Email",
+                html: `
         <h2>Welcome ${createdUser.fullname}</h2>
         <p>Click the link below to verify your email.</p>
 
@@ -101,7 +111,12 @@ const registeruser = asyncHandler(async (req, res) => {
             Verify Email
         </a>
     `
-    });
+            });
+        } catch (error) {
+            await User.findByIdAndDelete(createdUser._id);
+            throw new ApiError(502, "Could not send verification email. Please try again later.");
+        }
+    }
     // fetch safe user
     const finalUser = await User.findById(createdUser._id).select(
         "-password -refreshtoken"
@@ -115,7 +130,9 @@ const registeruser = asyncHandler(async (req, res) => {
         new ApiResponse(
             201,
             finalUser,
-            "User created successfully. Please verify your email."
+            emailVerificationRequired
+                ? "User created successfully. Please verify your email."
+                : "User created successfully. You can now sign in."
         )
     );
 });
@@ -174,11 +191,11 @@ const loginuser = asyncHandler(async (req, res) => {
         $or: [{ username }, { email }]
     });
 
-    if (!user.isEmailVerified) {
-        throw new ApiError(403, "Please verify your email first");
-    }
     if (!user) {
         throw new ApiError(404, "user not exists")
+    }
+    if (requiresEmailVerification() && !user.isEmailVerified) {
+        throw new ApiError(403, "Please verify your email first");
     }
 
     const ispass = await user.isvalidpassword(password)
@@ -253,7 +270,8 @@ const forgetPassword = asyncHandler(async (req, res) => {
     user.passwordResetExpires = Date.now() + 15 * 60 * 1000;
 
     await user.save({ validateBeforeSave: false })
-    const resetUrl = `http://localhost:7000/api/v1/users/reset-password?token=${resettoken}`;
+    const apiBaseUrl = process.env.API_BASE_URL || `http://localhost:${process.env.PORT || 8000}`;
+    const resetUrl = `${apiBaseUrl}/api/v1/users/reset-password?token=${resettoken}`;
     //html for email
     const html = `
         <h2>Password Reset</h2>
@@ -486,6 +504,25 @@ const getuserchannelprofile = asyncHandler(async (req, res) => {
                 as: "subscribedto"
             }
         }, {
+            $lookup: {
+                from: "videos",
+                let: { channelId: "$_id" },
+                pipeline: [
+                    {
+                        $match: {
+                            $expr: {
+                                $and: [
+                                    { $eq: ["$owner", "$$channelId"] },
+                                    { $eq: ["$ispublished", true] }
+                                ]
+                            }
+                        }
+                    },
+                    { $sort: { createdAt: -1 } }
+                ],
+                as: "videos"
+            }
+        }, {
             $addFields: {
                 subscribercount: {
                     $size: "$subscriber"
@@ -512,7 +549,7 @@ const getuserchannelprofile = asyncHandler(async (req, res) => {
                 issubscribed: 1,
                 avatar: 1,
                 coverimage: 1,
-                email: 1
+                videos: 1
             }
         }
     ])
@@ -568,7 +605,7 @@ const getwatchhistory = asyncHandler(async (req, res) => {
         .json(
             new ApiResponse(
                 200,
-                users[0].watchHistroy,
+                users[0]?.watchHistory || [],
                 "watch history fetched successfully"
             )
         )

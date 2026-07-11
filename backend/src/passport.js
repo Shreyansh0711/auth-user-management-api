@@ -17,8 +17,12 @@ passport.use(
             const avatar=profile.photos[0].value
             const googleId=profile.id;
             let user=await User.findOne({email})
-            const username=fullname.replace(/\s+/g,"").toLowerCase()+
-            Math.floor(Math.random()*1000)
+            const baseusername=fullname.replace(/\s+/g,"").toLowerCase()
+            let username=baseusername+Math.floor(Math.random()*1000)
+
+            while(await User.findOne({username})){
+                username=baseusername+Math.floor(Math.random()*1000)
+            }
             if(!user){
                 user=await User.create({
                     fullname,

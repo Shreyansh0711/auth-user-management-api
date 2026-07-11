@@ -1,21 +1,21 @@
 import { asyncHandler } from "../utils/asynchandler.js";
 import { ApiError } from "../utils/apierror.js";
 import { user as User } from "../models/user.model.js";
-import { video} from "../models/video.model.js";
+import { video } from "../models/video.model.js";
 import { uploadoncloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/apiresponse.js";
 import jwt from "jsonwebtoken"
 import mongoose from "mongoose"
 
-const publishvideo=asyncHandler(async(req,res)=>{
-    const {title,description}=req.body
+const publishvideo = asyncHandler(async (req, res) => {
+    const { title, description } = req.body
 
-    if(!title||!description){
-        throw new ApiError(400,"title and description is required")
+    if (!title || !description) {
+        throw new ApiError(400, "title and description is required")
     }
 
-    const videolocalpath=req.files?.videofile?.[0].path;
-    const thumbnaillocalpath=req.files?.thumbnail?.[0].path;
+    const videolocalpath = req.files?.videofile?.[0].path;
+    const thumbnaillocalpath = req.files?.thumbnail?.[0].path;
 
     if (!videolocalpath) {
         throw new ApiError(400, "Video file missing");
@@ -25,45 +25,70 @@ const publishvideo=asyncHandler(async(req,res)=>{
         throw new ApiError(400, "Thumbnail missing");
     }
 
-    const uploadedvideo=await uploadoncloudinary(videolocalpath)
-    const uploadedthumbnail=await uploadoncloudinary(thumbnaillocalpath)
+    const uploadedvideo = await uploadoncloudinary(videolocalpath)
+    const uploadedthumbnail = await uploadoncloudinary(thumbnaillocalpath)
 
-    if(!uploadedvideo){
-        throw new ApiError(500,"video upload failed")
+    if (!uploadedvideo) {
+        throw new ApiError(500, "video upload failed")
     }
 
     //create document
-    const createdvideo=await video.create({
+    const createdvideo = await video.create({
         title,
         description,
-        videofile:uploadedvideo.secure_url,
-        thumbnail:uploadedthumbnail.secure_url,
-        duration:uploadedvideo.duration,
-        owner:req.user._id
+        videofile: uploadedvideo.secure_url,
+        thumbnail: uploadedthumbnail.secure_url,
+        duration: uploadedvideo.duration,
+        owner: req.user._id
     })
 
     return res
-    .status(201)
-    .json(
-        new ApiResponse(201,createdvideo,"video uploaded successfully")
-    )
+        .status(201)
+        .json(
+            new ApiResponse(201, createdvideo, "video uploaded successfully")
+        )
 
 })
-const getvideobyid=asyncHandler(async(req,res)=>{
-    const {videoid}=req.params
+const getallvideos = asyncHandler(async (req, res) => {
+    const page = parseInt(req.query.page) || 1
+    const limit = parseInt(req.query.limit) || 12
+    const skip = (page - 1) * limit
 
-    const foundvideo=await video.findById(videoid).populate("owner","username avatar")
-    if(!foundvideo){
-        throw new ApiError(404,"video not found")
+    const videos = await video.find({ ispublished: true })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate("owner", "username fullname avatar")
+
+    return res.status(200).json(
+        new ApiResponse(200, videos, "videos fetched successfully")
+    )
+})
+
+const getvideobyid = asyncHandler(async (req, res) => {
+    const { videoid } = req.params
+
+    const foundvideo = await video.findById(videoid).populate("owner", "username avatar")
+    if (!foundvideo) {
+        throw new ApiError(404, "video not found")
     }
-    
-    foundvideo.views+=1;
+
+    foundvideo.views += 1;
     await foundvideo.save()
 
+    if (req.user?._id) {
+        await User.findByIdAndUpdate(req.user._id, {
+            $pull: { watchhistory: foundvideo._id }
+        })
+        await User.findByIdAndUpdate(req.user._id, {
+            $push: { watchhistory: foundvideo._id }
+        })
+    }
+
     return res.status(200)
-    .json(
-        new ApiResponse(200,foundvideo,"video fetched successfully")
-    )
+        .json(
+            new ApiResponse(200, foundvideo, "video fetched successfully")
+        )
 })
 
-export {publishvideo,getvideobyid}
+export { publishvideo, getallvideos, getvideobyid }

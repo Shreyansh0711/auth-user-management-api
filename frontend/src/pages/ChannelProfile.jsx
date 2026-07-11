@@ -6,12 +6,23 @@ import { useAuthStore } from '../store/authStore';
 import toast from 'react-hot-toast';
 import { Camera, Users } from 'lucide-react';
 import { formatViews } from '../utils/format';
+import { ImageCropModal } from '../components/ImageCropModal';
 
 export const ChannelProfile = () => {
   const { username } = useParams();
   const { user: currentUser, setUser } = useAuthStore();
   const [profile, setProfile] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isUploading, setIsUploading] = useState(false);
+  const [cropModalState, setCropModalState] = useState({
+    isOpen: false,
+    image: null,
+    aspect: 1,
+    cropShape: 'round',
+    type: 'avatar',
+    maxSizeMB: 4,
+    fileName: 'avatar.jpg',
+  });
 
   useEffect(() => {
     loadProfile();
@@ -29,13 +40,64 @@ export const ChannelProfile = () => {
     }
   };
 
-  const handleImageUpload = async (type, file) => {
-    if (!file) return;
+  const closeCropModal = () => {
+    setCropModalState((current) => {
+      if (current.image?.startsWith('blob:')) {
+        URL.revokeObjectURL(current.image);
+      }
+
+      return {
+        isOpen: false,
+        image: null,
+        aspect: 1,
+        cropShape: 'round',
+        type: 'avatar',
+        maxSizeMB: 4,
+        fileName: 'avatar.jpg',
+      };
+    });
+  };
+
+  const openCropModal = (type, file) => {
+    if (!file) {
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    setCropModalState({
+      isOpen: true,
+      image: objectUrl,
+      aspect: type === 'avatar' ? 1 : 16 / 9,
+      cropShape: type === 'avatar' ? 'round' : 'rect',
+      type,
+      maxSizeMB: type === 'avatar' ? 4 : 7,
+      fileName: type === 'avatar' ? 'profile-picture.jpg' : 'cover-image.jpg',
+    });
+  };
+
+  const handleImagePick = (type, file) => {
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select a valid image file.');
+      return;
+    }
+
+    openCropModal(type, file);
+  };
+
+  const uploadImage = async (type, file) => {
+    if (!file) {
+      return;
+    }
 
     const formData = new FormData();
     formData.append(type === 'avatar' ? 'avatar' : 'coverimage', file);
 
     try {
+      setIsUploading(true);
       const response = type === 'avatar'
         ? await authAPI.updateAvatar(formData)
         : await authAPI.updateCoverImage(formData);
@@ -45,6 +107,8 @@ export const ChannelProfile = () => {
       toast.success(`${type === 'avatar' ? 'Profile picture' : 'Cover image'} updated`);
     } catch (error) {
       toast.error(error.response?.data?.message || 'Image upload failed');
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -93,9 +157,14 @@ export const ChannelProfile = () => {
           <img src={profile.coverimage} alt="cover" className="w-full h-full object-cover" />
         )}
         {isOwnChannel && (
-          <label className="absolute right-4 bottom-4 cursor-pointer bg-black/70 hover:bg-black text-white px-3 py-2 rounded-lg text-sm flex items-center gap-2">
-            <Camera size={16} /> Change cover
-            <input type="file" accept="image/*" className="hidden" onChange={(event) => handleImageUpload('cover', event.target.files?.[0])} />
+          <label className={`absolute right-4 bottom-4 ${isUploading ? 'pointer-events-none opacity-70' : 'cursor-pointer'} bg-black/70 hover:bg-black text-white px-3 py-2 rounded-lg text-sm flex items-center gap-2`}>
+            {isUploading ? (
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+            ) : (
+              <Camera size={16} />
+            )}
+            <span>{isUploading ? 'Updating cover...' : 'Change cover'}</span>
+            <input type="file" accept="image/*" className="hidden" onChange={(event) => handleImagePick('cover', event.target.files?.[0])} />
           </label>
         )}
       </div>
@@ -111,9 +180,13 @@ export const ChannelProfile = () => {
               />
             )}
             {isOwnChannel && (
-              <label className="absolute bottom-1 right-1 cursor-pointer rounded-full bg-red-600 p-2 text-white hover:bg-red-700">
-                <Camera size={16} />
-                <input type="file" accept="image/*" className="hidden" onChange={(event) => handleImageUpload('avatar', event.target.files?.[0])} />
+              <label className={`absolute bottom-1 right-1 ${isUploading ? 'pointer-events-none opacity-70' : 'cursor-pointer'} rounded-full bg-red-600 p-2 text-white hover:bg-red-700`}>
+                {isUploading ? (
+                  <span className="block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                ) : (
+                  <Camera size={16} />
+                )}
+                <input type="file" accept="image/*" className="hidden" onChange={(event) => handleImagePick('avatar', event.target.files?.[0])} />
               </label>
             )}
           </div>
@@ -186,6 +259,20 @@ export const ChannelProfile = () => {
           </div>
         )}
       </div>
+
+      <ImageCropModal
+        isOpen={cropModalState.isOpen}
+        image={cropModalState.image}
+        aspect={cropModalState.aspect}
+        cropShape={cropModalState.cropShape}
+        onCancel={closeCropModal}
+        onCropComplete={(croppedFile) => {
+          uploadImage(cropModalState.type, croppedFile);
+          closeCropModal();
+        }}
+        maxSizeMB={cropModalState.maxSizeMB}
+        fileName={cropModalState.fileName}
+      />
     </div>
   );
 };

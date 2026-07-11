@@ -22,4 +22,16 @@ const addcomment=asyncHandler(async(req,res)=>{
     .json(new ApiResponse(200, newcomment, "new comment added"))
 })
 
-export { addcomment };
+const getvideocomments=asyncHandler(async(req,res)=>{
+    const {videoid}=req.params
+
+    const comments=await comment.find({ video: videoid })
+        .populate("owner","username fullname avatar")
+        .sort({ createdAt: -1 })
+
+    return res.status(200).json(
+        new ApiResponse(200, comments, "comments fetched successfully")
+    )
+})
+
+export { addcomment, getvideocomments };

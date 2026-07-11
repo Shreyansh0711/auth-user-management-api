@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
+import { ImageCropModal } from '../components/ImageCropModal';
 import { useAuthStore } from '../store/authStore';
 import toast from 'react-hot-toast';
 import { Play } from 'lucide-react';
@@ -12,6 +13,13 @@ export const Register = () => {
   const navigate = useNavigate();
   const register = useAuthStore((state) => state.register);
   const [loading, setLoading] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState('');
+  const [cropModalState, setCropModalState] = useState({
+    isOpen: false,
+    image: null,
+    aspect: 1,
+    cropShape: 'round',
+  });
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -21,13 +29,70 @@ export const Register = () => {
     coverimage: null,
   });
 
+  useEffect(() => {
+    return () => {
+      if (avatarPreview) {
+        URL.revokeObjectURL(avatarPreview);
+      }
+    };
+  }, [avatarPreview]);
+
   const handleChange = (e) => {
     const { name, value, files } = e.target;
     if (files) {
-      setFormData({ ...formData, [name]: files[0] });
+      setFormData((current) => ({ ...current, [name]: files[0] }));
     } else {
-      setFormData({ ...formData, [name]: value });
+      setFormData((current) => ({ ...current, [name]: value }));
     }
+  };
+
+  const handleAvatarSelect = (event) => {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please choose a valid image file.');
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    setCropModalState({
+      isOpen: true,
+      image: objectUrl,
+      aspect: 1,
+      cropShape: 'round',
+    });
+  };
+
+  const handleAvatarCropComplete = (croppedFile) => {
+    setFormData((current) => ({ ...current, avatar: croppedFile }));
+
+    setAvatarPreview((currentPreview) => {
+      if (currentPreview) {
+        URL.revokeObjectURL(currentPreview);
+      }
+
+      return URL.createObjectURL(croppedFile);
+    });
+
+    toast.success('Avatar cropped and ready for registration.');
+  };
+
+  const closeCropModal = () => {
+    setCropModalState((current) => {
+      if (current.image?.startsWith('blob:')) {
+        URL.revokeObjectURL(current.image);
+      }
+
+      return {
+        ...current,
+        isOpen: false,
+        image: null,
+      };
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -118,16 +183,29 @@ export const Register = () => {
               required
             />
 
-            <div className="space-y-1">
+            <div className="space-y-2">
               <label className="text-sm font-medium text-textMuted">Avatar *</label>
               <input
                 type="file"
                 name="avatar"
                 accept="image/*"
-                onChange={handleChange}
-                required
+                onChange={handleAvatarSelect}
                 className="glass-input file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-red-600 file:text-white file:text-sm"
               />
+
+              {avatarPreview && (
+                <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-3">
+                  <img
+                    src={avatarPreview}
+                    alt="Selected avatar preview"
+                    className="h-16 w-16 rounded-full border border-white/10 object-cover"
+                  />
+                  <div>
+                    <p className="text-sm font-medium text-white">Cropped avatar ready</p>
+                    <p className="text-xs text-textMuted">The registered image will use this cropped version.</p>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="space-y-1">
@@ -158,6 +236,17 @@ export const Register = () => {
           </p>
         </Card>
       </motion.div>
+
+      <ImageCropModal
+        isOpen={cropModalState.isOpen}
+        image={cropModalState.image}
+        aspect={cropModalState.aspect}
+        cropShape={cropModalState.cropShape}
+        onCancel={closeCropModal}
+        onCropComplete={handleAvatarCropComplete}
+        maxSizeMB={4}
+        fileName="avatar.jpg"
+      />
     </div>
   );
 };
