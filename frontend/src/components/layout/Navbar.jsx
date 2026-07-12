@@ -20,7 +20,7 @@ export const Navbar = () => {
           </Link>
         </div>
 
-        <div className="flex-1 flex items-center max-w-2xl px-4 md:px-12 relative hidden md:flex">
+        <div className="flex-1 items-center max-w-2xl px-4 md:px-12 relative hidden md:flex">
           <div className="relative w-full flex">
             <input
               type="text"
@@ -38,10 +38,10 @@ export const Navbar = () => {
             <>
               <Link
                 to="/upload"
-                className="p-2 rounded-full hover:bg-white/10 transition-colors text-textMuted hover:text-white hidden sm:flex items-center gap-2 px-4"
+                className="p-2 rounded-full hover:bg-white/10 transition-colors text-textMuted hover:text-white flex items-center gap-2 px-3 md:px-4"
               >
                 <Upload size={20} />
-                <span className="text-sm font-medium">Upload</span>
+                <span className="text-sm font-medium hidden sm:block">Upload</span>
               </Link>
               <button className="relative p-2 rounded-full hover:bg-white/10 transition-colors text-textMuted hover:text-white">
                 <Bell size={20} />
@@ -58,7 +58,7 @@ export const Navbar = () => {
               </Link>
               <button
                 onClick={logout}
-                className="text-sm font-medium text-textMuted hover:text-white transition-colors hidden sm:block"
+                className="text-sm font-medium text-textMuted hover:text-white transition-colors block"
               >
                 Logout
               </button>

@@ -13,7 +13,7 @@ export const MainLayout = () => {
       <div className="flex flex-1 overflow-hidden relative">
         {isAuthenticated && <Sidebar />}
         <main
-          className={`flex-1 overflow-y-auto p-4 md:p-6 transition-all duration-300 ${
+          className={`flex-1 overflow-y-auto p-4 md:p-6 pb-24 lg:pb-6 transition-all duration-300 ${
             isAuthenticated ? 'lg:ml-64' : ''
           }`}
         >
