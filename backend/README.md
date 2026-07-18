@@ -1,4 +1,4 @@
-# Chai & Backend - Express.js REST API
+# MeTube Backend - Express.js REST API
 
 A robust REST API built with Express.js and MongoDB for a modern social media platform.
 
