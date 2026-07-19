@@ -1,21 +1,35 @@
 // utils/sendEmail.js
 import nodemailer from "nodemailer";
-console.log(process.env.EMAIL_USER);
-console.log(process.env.EMAIL_PASS);
 
 export const sendEmail = async ({ email, subject, html }) => {
-    const transporter = nodemailer.createTransport({
-        service: "gmail",
-        auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASS,
-        },
-    });
+  const transporter = nodemailer.createTransport({
+    host: process.env.EMAIL_HOST || "smtp.gmail.com",
+    port: Number(process.env.EMAIL_PORT || 587),
+    secure:
+      process.env.EMAIL_SECURE === "true" || process.env.EMAIL_PORT === "465",
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
+  });
+console.log({
+  EMAIL_HOST: process.env.EMAIL_HOST,
+  EMAIL_PORT: process.env.EMAIL_PORT,
+  EMAIL_USER: process.env.EMAIL_USER,
+  EMAIL_PASS: process.env.EMAIL_PASS ? "Loaded" : "Missing",
+});
+  try {
+  await transporter.sendMail({
+    from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+    to: email,
+    subject,
+    html,
+  });
 
-    await transporter.sendMail({
-        from: process.env.EMAIL_USER,
-        to: email,
-        subject,
-        html,
-    });
+  console.log("Email sent successfully");
+} catch (err) {
+  console.error("sendMail failed:");
+  console.error(err);
+  throw err;
+}
 };

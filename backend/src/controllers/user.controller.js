@@ -7,6 +7,54 @@ import { sendEmail } from "../utils/sendEmail.js";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import crypto from "crypto";
+import { getFrontendUrl } from "../utils/url.js";
+const getBaseUrl = (value, fallback) => {
+  const trimmed = value?.split(",")[0]?.trim();
+  return trimmed || fallback;
+};
+
+const getBackendBaseUrl = () =>
+  getBaseUrl(
+    process.env.API_BASE_URL || process.env.BACKEND_URL,
+    `http://localhost:${process.env.PORT || 7000}`
+  );
+
+export const resolveFrontendBaseUrl = (req) => {
+  const requestOrigin = req?.headers?.origin;
+  if (requestOrigin) {
+    try {
+      const parsedOrigin = new URL(requestOrigin);
+      return `${parsedOrigin.protocol}//${parsedOrigin.host}`;
+    } catch {
+      // fall through to explicit env values
+    }
+  }
+
+  const forwardedProto = req?.headers?.["x-forwarded-proto"]
+    ?.split(",")[0]
+    ?.trim();
+  const forwardedHost = req?.headers?.["x-forwarded-host"]
+    ?.split(",")[0]
+    ?.trim();
+  if (forwardedProto && forwardedHost) {
+    return `${forwardedProto}://${forwardedHost}`;
+  }
+
+  const host = req?.headers?.host;
+  if (host) {
+    const protocol =
+      req?.secure || forwardedProto === "https" ? "https" : "http";
+    return `${protocol}://${host}`;
+  }
+
+  return getBaseUrl(
+    process.env.FRONTEND_URL ||
+      process.env.CLIENT_URL ||
+      process.env.VITE_APP_URL,
+    "http://localhost:5173"
+  );
+};
+
 const generateAccessAndRefreshtoken = async (userid) => {
   try {
     const user = await User.findById(userid);
@@ -96,9 +144,7 @@ const registeruser = asyncHandler(async (req, res) => {
         expiresIn: process.env.EMAIL_VERIFICATION_EXPIRY,
       }
     );
-    const apiBaseUrl =
-      process.env.API_BASE_URL ||
-      `http://localhost:${process.env.PORT || 8000}`;
+    const apiBaseUrl = getBackendBaseUrl();
     const verificationUrl = `${apiBaseUrl}/api/v1/users/verify-email?token=${verificationToken}`;
     try {
       await sendEmail({
@@ -257,8 +303,9 @@ const logoutuser = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, {}, "user logged out"));
 });
 const forgetPassword = asyncHandler(async (req, res) => {
+   
   const { email } = req.body;
-  if (!email?.trim()) {
+  if (!email?.trim()) { 
     throw new ApiError(400, "email is required");
   }
 
@@ -285,10 +332,7 @@ const forgetPassword = asyncHandler(async (req, res) => {
   user.passwordResetExpires = Date.now() + 15 * 60 * 1000;
 
   await user.save({ validateBeforeSave: false });
-  const apiBaseUrl =
-    process.env.API_BASE_URL || `http://localhost:${process.env.PORT || 8000}`;
-  const frontendBaseUrl = process.env.FRONTEND_URL || "http://localhost:3000";
-  const resetUrl = `${frontendBaseUrl}/reset-password?token=${resettoken}`;
+  const resetUrl = `${getFrontendUrl()}/reset-password?token=${resettoken}`;
   //html for email
   const html = `
         <h2>Password Reset</h2>

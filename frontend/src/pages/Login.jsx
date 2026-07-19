@@ -71,7 +71,7 @@ export const Login = () => {
             <div className="space-y-1">
               <div className="flex justify-between">
                 <label className="text-sm font-medium text-textMuted">Password</label>
-                <Link to="#" className="text-sm text-primary hover:text-primaryHover transition-colors">
+                <Link to="/forgot-password" className="text-sm text-primary hover:text-primaryHover transition-colors">
                   Forgot password?
                 </Link>
               </div>
