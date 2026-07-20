@@ -19,12 +19,16 @@ console.log({
   EMAIL_PASS: process.env.EMAIL_PASS ? "Loaded" : "Missing",
 });
   try {
-  await transporter.sendMail({
-    from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
-    to: email,
-    subject,
-    html,
-  });
+  await transporter.verify();
+    console.log("SMTP connection verified");
+
+    // 👇 Then send the email
+    await transporter.sendMail({
+      from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+      to: email,
+      subject,
+      html,
+    });
 
   console.log("Email sent successfully");
 } catch (err) {
