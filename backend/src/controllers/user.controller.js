@@ -309,17 +309,15 @@ const forgetPassword = asyncHandler(async (req, res) => {
     throw new ApiError(400, "email is required");
   }
 
-  const user = await User.findOne({ email });
+  const user = await User.findOne({ email });//Model.findOne(filter)
   if (!user) {
-    return res
-      .status(200)
-      .json(
-        new ApiResponse(
-          200,
-          {},
-          "if an account with this email exists,a password link has been sent."
-        )
-      );
+    return res.status(200).json(
+    new ApiResponse(
+      200,
+      {},
+      "If an account with that email exists, we've sent a password reset link. Please check your inbox. If you don't see it within a few minutes, check your Spam or Junk folder."
+    )
+);
   }
   //generate secure random token
   const resettoken = crypto.randomBytes(32).toString("hex");
@@ -360,17 +358,16 @@ const forgetPassword = asyncHandler(async (req, res) => {
         )
       );
   }
+  return res.status(200).json(
+  new ApiResponse(
+    200,
+    {},
+    "Password reset link sent successfully! Please check your inbox. If you don't receive the email within a few minutes, check your Spam or Junk folder."
+  )
+);
+  
+})
 
-  return res
-    .status(200)
-    .json(
-      new ApiResponse(
-        200,
-        {},
-        "if an account with this email exists,a password reset link has been sent."
-      )
-    );
-});
 const resetpassword = asyncHandler(async (req, res) => {
   const { token, password } = req.body;
   //validate input
